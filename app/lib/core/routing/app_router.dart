@@ -5,6 +5,7 @@ import '../../features/auth/presentation/auth_choice_screen.dart';
 import '../../features/auth/state/auth_controller.dart';
 import '../../features/bootstrap/presentation/splash_screen.dart';
 import '../../features/bootstrap/state/bootstrap_controller.dart';
+import '../../features/bootstrap/state/splash_animation_provider.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/onboarding/presentation/onboarding_screen.dart';
 import '../../features/proxies/presentation/proxy_details_route_screen.dart';
@@ -17,16 +18,23 @@ import '../models/proxy_node.dart';
 final appRouterProvider = Provider<GoRouter>((ref) {
   final bootstrap = ref.watch(bootstrapControllerProvider);
   final auth = ref.watch(authControllerProvider);
+  final splashAnimationDone = ref.watch(splashAnimationDoneProvider);
 
   String? redirectLogic(GoRouterState state) {
     final path = state.uri.path;
+    final onSplash = path == AppRoutes.splash;
+
+    // Keep users on splash until the animation has fully finished.
+    if (!splashAnimationDone) {
+      return onSplash ? null : AppRoutes.splash;
+    }
 
     if (bootstrap.isLoading || auth.isLoading) {
-      return path == AppRoutes.splash ? null : AppRoutes.splash;
+      return onSplash ? null : AppRoutes.splash;
     }
 
     if (bootstrap.hasError) {
-      return path == AppRoutes.splash ? null : AppRoutes.splash;
+      return onSplash ? null : AppRoutes.splash;
     }
 
     if (auth.hasError) {

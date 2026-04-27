@@ -1,10 +1,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../../../core/services/service_providers.dart';
 import 'bootstrap_state.dart';
 
 class BootstrapController extends AsyncNotifier<BootstrapState> {
   @override
   Future<BootstrapState> build() async {
+    if (!dotenv.isInitialized) {
+      await dotenv.load(fileName: '.env');
+    }
+
     final firebaseInitializer = ref.read(firebaseInitializerProvider);
     final revenueCat = ref.read(revenueCatServiceProvider);
     final adService = ref.read(adServiceProvider);
