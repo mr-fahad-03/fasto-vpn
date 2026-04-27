@@ -7,9 +7,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:805324163741:android:8a56dc7e25739ab21f6274",
+        "mobilesdk_app_id": "1:805324163741:android:4ff850245b402bc01f6274",
         "android_client_info": {
-          "package_name": "com.fasto.vpm"
+          "package_name": "com.fasto.vpn"
         }
       },
       "oauth_client": [
@@ -32,7 +32,7 @@
             },
             {
               "client_id": "805324163741-qvab4m9lfq8scht5lnr1lanm9v0q8tie.apps.googleusercontent.com",
-              "client_type": 2,
+              "client_type": 2, 
               "ios_info": {
                 "bundle_id": "com.fasto.vpm"
               }

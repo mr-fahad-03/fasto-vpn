@@ -1,4 +1,4 @@
-package com.fasto.vpm
+package com.fasto.vpn
 
 import io.flutter.embedding.android.FlutterActivity
 

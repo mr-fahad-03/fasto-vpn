@@ -2,13 +2,16 @@ import 'dart:io';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class Env {
+  static const String _defaultApiPrefix = '/api/v1';
+
   static String get apiBaseUrl {
     final configured = dotenv.env['API_BASE_URL']?.trim() ?? '';
     final fallback = Platform.isAndroid
-        ? 'http://10.0.2.2:4000/api/v1'
-        : 'http://127.0.0.1:4000/api/v1';
+        ? 'http://10.0.2.2:4000$_defaultApiPrefix'
+        : 'http://127.0.0.1:4000$_defaultApiPrefix';
     final raw = configured.isEmpty ? fallback : configured;
-    return _normalizeLoopbackHost(raw);
+    final normalizedHost = _normalizeLoopbackHost(raw);
+    return _ensureApiPrefix(normalizedHost);
   }
 
   static String _normalizeLoopbackHost(String url) {
@@ -26,6 +29,24 @@ class Env {
     }
 
     return url;
+  }
+
+  static String _ensureApiPrefix(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null || uri.host.isEmpty) {
+      return url;
+    }
+
+    final rawPath = uri.path.isEmpty ? '/' : uri.path;
+    final normalizedPath = rawPath.endsWith('/') && rawPath.length > 1
+        ? rawPath.substring(0, rawPath.length - 1)
+        : rawPath;
+
+    if (normalizedPath == '/' || normalizedPath == '/api') {
+      return uri.replace(path: _defaultApiPrefix).toString();
+    }
+
+    return uri.toString();
   }
 
   static bool get firebaseEnabled =>

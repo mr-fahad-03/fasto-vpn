@@ -16,11 +16,10 @@ import '../constants/app_routes.dart';
 import '../models/proxy_node.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  final bootstrap = ref.watch(bootstrapControllerProvider);
-  final auth = ref.watch(authControllerProvider);
-  final splashAnimationDone = ref.watch(splashAnimationDoneProvider);
-
   String? redirectLogic(GoRouterState state) {
+    final bootstrap = ref.read(bootstrapControllerProvider);
+    final auth = ref.read(authControllerProvider);
+    final splashAnimationDone = ref.read(splashAnimationDoneProvider);
     final path = state.uri.path;
     final onSplash = path == AppRoutes.splash;
 
@@ -53,14 +52,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       return path == AppRoutes.authChoice ? null : AppRoutes.authChoice;
     }
 
-    if (path == AppRoutes.splash || path == AppRoutes.onboarding || path == AppRoutes.authChoice) {
+    if (path == AppRoutes.splash ||
+        path == AppRoutes.onboarding ||
+        path == AppRoutes.authChoice) {
       return AppRoutes.home;
     }
 
     return null;
   }
 
-  return GoRouter(
+  final router = GoRouter(
     initialLocation: AppRoutes.splash,
     redirect: (_, state) => redirectLogic(state),
     routes: [
@@ -90,7 +91,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final id = state.pathParameters['id'] ?? '';
           return ProxyDetailsRouteScreen(
             proxyId: id,
-            initialProxy: state.extra is ProxyNode ? state.extra as ProxyNode : null,
+            initialProxy:
+                state.extra is ProxyNode ? state.extra as ProxyNode : null,
           );
         },
       ),
@@ -112,4 +114,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
     ],
   );
+
+  ref.listen(bootstrapControllerProvider, (_, __) => router.refresh());
+  ref.listen(authControllerProvider, (_, __) => router.refresh());
+  ref.listen(splashAnimationDoneProvider, (_, __) => router.refresh());
+  ref.onDispose(router.dispose);
+
+  return router;
 });
