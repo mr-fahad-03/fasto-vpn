@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../../core/constants/app_routes.dart';
+import '../../../core/services/service_providers.dart';
 import '../../../core/widgets/error_view.dart';
 import '../state/bootstrap_controller.dart';
 import '../state/splash_animation_provider.dart';
@@ -14,7 +17,6 @@ class SplashScreen extends ConsumerStatefulWidget {
 class _SplashScreenState extends ConsumerState<SplashScreen>
     with SingleTickerProviderStateMixin {
   static const Duration _animationDuration = Duration(milliseconds: 1800);
-  static const Duration _minimumVisibleDuration = Duration(milliseconds: 1800);
 
   static const LinearGradient _splashGradient = LinearGradient(
     begin: Alignment.centerLeft,
@@ -56,12 +58,20 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
   Future<void> _runSplashSequence() async {
     try {
-      await Future.wait<void>([
-        _controller.forward().orCancel,
-        Future<void>.delayed(_minimumVisibleDuration),
-      ]);
+      await _controller.forward().orCancel;
     } on TickerCanceled {
       return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    var onboardingDone = false;
+    try {
+      onboardingDone = await ref.read(appStorageProvider).isOnboardingDone();
+    } catch (_) {
+      onboardingDone = false;
     }
 
     if (!mounted) {
@@ -73,6 +83,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         return;
       }
       ref.read(splashAnimationDoneProvider.notifier).state = true;
+      if (!onboardingDone) {
+        context.go(AppRoutes.onboarding);
+      }
     });
   }
 

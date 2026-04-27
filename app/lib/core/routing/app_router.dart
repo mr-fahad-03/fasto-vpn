@@ -30,7 +30,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     }
 
     if (bootstrap.isLoading || auth.isLoading) {
-      return onSplash ? null : AppRoutes.splash;
+      final onOnboarding = path == AppRoutes.onboarding;
+      return (onSplash || onOnboarding) ? null : AppRoutes.splash;
     }
 
     if (bootstrap.hasError) {
