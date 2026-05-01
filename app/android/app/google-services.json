@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "805324163741-3dlccqp8l4gl4oa2t795ub53pol52kk4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.fasto.vpn",
+            "certificate_hash": "5f47024f6f17fdbc2f9ca0a2f469510b62ddc80a"
+          }
+        },
+        {
           "client_id": "805324163741-i4b6vr856qbriksbncm2pnr6p65mspfs.apps.googleusercontent.com",
           "client_type": 3
         }
@@ -31,10 +39,10 @@
               "client_type": 3
             },
             {
-              "client_id": "805324163741-qvab4m9lfq8scht5lnr1lanm9v0q8tie.apps.googleusercontent.com",
-              "client_type": 2, 
+              "client_id": "805324163741-jlnumg2482iri3hac23shuneiatk2fh9.apps.googleusercontent.com",
+              "client_type": 2,
               "ios_info": {
-                "bundle_id": "com.fasto.vpm"
+                "bundle_id": "com.fasto.vpn"
               }
             }
           ]

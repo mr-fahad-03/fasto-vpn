@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lottie/lottie.dart';
 
 import '../../../core/constants/app_routes.dart';
 import '../../../core/models/proxy_node.dart';
@@ -36,6 +38,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final titles = ['Fasto VPN', 'Plans', 'Profile'];
+    final isHomeTab = _tabIndex == 0;
+    final isPlansTab = _tabIndex == 1;
+    final isProfileTab = _tabIndex == 2;
+    final highlightAppBar = isHomeTab || isPlansTab || isProfileTab;
 
     final tabs = [
       _HomeTab(
@@ -55,41 +61,128 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ];
 
     return Scaffold(
+      extendBody: true,
+      extendBodyBehindAppBar: false,
       appBar: AppBar(
-        title: Text(titles[_tabIndex]),
+        title: Text(
+          isHomeTab ? 'FASTO VPN' : titles[_tabIndex],
+          style: highlightAppBar
+              ? const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  letterSpacing: 0.6,
+                )
+              : null,
+        ),
+        backgroundColor: isHomeTab
+            ? const Color(0xFF6A3EF0)
+            : isPlansTab
+                ? const Color(0xFF4B42D4)
+                : isProfileTab
+                    ? const Color(0xFF3555D9)
+                    : null,
+        foregroundColor: highlightAppBar ? Colors.white : null,
+        surfaceTintColor: Colors.transparent,
         actions: [
-          IconButton(
-            tooltip: 'Settings',
-            onPressed: () => context.push(AppRoutes.settings),
-            icon: const Icon(Icons.tune),
-          ),
+          if (highlightAppBar)
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: _FrostedIconButton(
+                icon: Icons.settings_outlined,
+                onTap: () => context.push(AppRoutes.settings),
+              ),
+            )
+          else
+            IconButton(
+              tooltip: 'Settings',
+              onPressed: () => context.push(AppRoutes.settings),
+              icon: const Icon(Icons.settings_outlined),
+            ),
         ],
       ),
       body: IndexedStack(
         index: _tabIndex,
         children: tabs,
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _tabIndex,
-        onDestinationSelected: (index) => setState(() => _tabIndex = index),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.workspace_premium_outlined),
-            selectedIcon: Icon(Icons.workspace_premium),
-            label: 'Plans',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
-      ),
+      bottomNavigationBar: highlightAppBar
+          ? SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xE6F5F8FF),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.62)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.12),
+                            blurRadius: 18,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: NavigationBarTheme(
+                        data: const NavigationBarThemeData(
+                          backgroundColor: Colors.transparent,
+                          surfaceTintColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          indicatorColor: Color(0xFFB8F1E2),
+                        ),
+                        child: NavigationBar(
+                          height: 72,
+                          selectedIndex: _tabIndex,
+                          onDestinationSelected: (index) => setState(() => _tabIndex = index),
+                          destinations: const [
+                            NavigationDestination(
+                              icon: Icon(Icons.home_outlined),
+                              selectedIcon: Icon(Icons.home),
+                              label: 'Home',
+                            ),
+                            NavigationDestination(
+                              icon: Icon(Icons.workspace_premium_outlined),
+                              selectedIcon: Icon(Icons.workspace_premium),
+                              label: 'Plans',
+                            ),
+                            NavigationDestination(
+                              icon: Icon(Icons.person_outline),
+                              selectedIcon: Icon(Icons.person),
+                              label: 'Profile',
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            )
+          : NavigationBar(
+              selectedIndex: _tabIndex,
+              onDestinationSelected: (index) => setState(() => _tabIndex = index),
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.home_outlined),
+                  selectedIcon: Icon(Icons.home),
+                  label: 'Home',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.workspace_premium_outlined),
+                  selectedIcon: Icon(Icons.workspace_premium),
+                  label: 'Plans',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.person_outline),
+                  selectedIcon: Icon(Icons.person),
+                  label: 'Profile',
+                ),
+              ],
+            ),
     );
   }
 }
@@ -325,295 +418,397 @@ class _HomeTabState extends ConsumerState<_HomeTab> with SingleTickerProviderSta
     final freeCount = countries.where((item) => !item.isPremium).length;
     final premiumCount = countries.where((item) => item.isPremium).length;
     final isGuest = auth?.session?.isGuest ?? true;
+    const topContentInset = 12.0;
+    final isConnectedToSelected = selectedProxy?.id == connectionState.connectedProxyId;
+    final connectButtonLabel = connectActionBusy
+        ? 'Connecting...'
+        : selectedProxy == null
+            ? 'Select Country'
+            : selectedNeedsUpgrade
+                ? 'Upgrade to Connect'
+                : isConnectedToSelected
+                    ? 'Disconnect'
+                    : 'Connect Now';
+    final connectButtonIcon = selectedNeedsUpgrade
+        ? Icons.workspace_premium
+        : isConnectedToSelected
+            ? Icons.link_off
+            : Icons.power_settings_new;
 
-    return RefreshIndicator(
-      onRefresh: () async {
-        await ref.read(entitlementControllerProvider.notifier).refresh();
-        await ref.read(proxyListControllerProvider.notifier).refresh();
-      },
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFFD137FF),
+            Color(0xFF5D39FF),
+            Color(0xFF12A9FF),
+          ],
+          stops: [0, 0.52, 1],
+        ),
+      ),
+      child: Stack(
         children: [
-          Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(22),
-              gradient: const LinearGradient(
-                colors: [Color(0xFF0F172A), Color(0xFF1D4ED8)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          RefreshIndicator(
+            color: const Color(0xFF0F172A),
+            onRefresh: () async {
+              await ref.read(entitlementControllerProvider.notifier).refresh();
+              await ref.read(proxyListControllerProvider.notifier).refresh();
+            },
+            child: ListView(
+              padding: EdgeInsets.fromLTRB(16, topContentInset, 16, 20),
               children: [
+                _GlassPanel(
+                  padding: const EdgeInsets.all(18),
+                  borderRadius: BorderRadius.circular(28),
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xCC090F30),
+                      Color(0xAA233CC5),
+                    ],
+                  ),
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: Opacity(
+                            opacity: 0.42,
+                            child: Transform.scale(
+                              scale: 1.2,
+                              child: Lottie.asset(
+                                'assets/World.json',
+                                fit: BoxFit.cover,
+                                alignment: Alignment.centerRight,
+                                repeat: true,
+                                animate: true,
+                                frameRate: FrameRate.max,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.centerLeft,
+                                end: Alignment.centerRight,
+                                colors: [
+                                  Color(0xBF080F2A),
+                                  Color(0x660A1338),
+                                  Color(0x1A0A1338),
+                                ],
+                                stops: [0, 0.52, 1],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.shield_rounded, color: Colors.white, size: 22),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  connected == null
+                                      ? 'App Proxy: Disconnected'
+                                      : 'App Proxy: ${connected.country}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                      const SizedBox(height: 10),
+                      Text(
+                        hasPremium
+                            ? 'All countries unlocked with premium speed.'
+                            : 'Free plan active. Premium countries are visible but locked.',
+                        style: const TextStyle(color: Color(0xFFE2E8F0), height: 1.35),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'This mode routes Fasto app requests only. Browser/device IP does not change.',
+                        style: TextStyle(color: Color(0xFFBFDBFE), fontSize: 12),
+                      ),
+                      const SizedBox(height: 12),
+                      AnimatedBuilder(
+                        animation: _flightProgress,
+                        builder: (context, _) {
+                          return _ConnectFlightTrack(
+                            progress: _flightProgress.value,
+                            selectedCountry: selectedProxy?.country ?? 'Selected Country',
+                            selectedFlag: selectedProxy?.flag ?? '??',
+                            state: _flightState,
+                          );
+                        },
+                      ),
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 250),
+                        child: _flightState == _ConnectFlightUiState.success
+                            ? Container(
+                                key: const ValueKey('connect_success_chip'),
+                                margin: const EdgeInsets.only(top: 10),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.green.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(999),
+                                  border: Border.all(color: Colors.greenAccent.withValues(alpha: 0.55)),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.check_circle, color: Colors.greenAccent, size: 16),
+                                    SizedBox(width: 6),
+                                    Text(
+                                      'You are connected',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : _flightState == _ConnectFlightUiState.failed
+                                ? Container(
+                                    key: const ValueKey('connect_failed_chip'),
+                                    margin: const EdgeInsets.only(top: 10),
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red.withValues(alpha: 0.2),
+                                      borderRadius: BorderRadius.circular(999),
+                                      border: Border.all(color: Colors.redAccent.withValues(alpha: 0.6)),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.error_outline, color: Colors.redAccent, size: 16),
+                                        SizedBox(width: 6),
+                                        Text(
+                                          'Connection failed',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                : const SizedBox.shrink(),
+                      ),
+                      const SizedBox(height: 14),
+                      InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: () => _openSelectorSheet(
+                          context,
+                          topCountries: topCountries,
+                          hasPremium: hasPremium,
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 16,
+                                backgroundColor: Colors.white.withValues(alpha: 0.2),
+                                child: Text(selectedProxy?.flag ?? '??'),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      selectedProxy?.country ?? 'Select a Country',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    Text(
+                                      selectedProxy == null
+                                          ? 'Tap to choose a server'
+                                          : selectedProxy.isPremium
+                                              ? 'Premium server'
+                                              : 'Free server',
+                                      style: const TextStyle(color: Color(0xFFE2E8F0)),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const Icon(Icons.expand_more, color: Colors.white),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _GradientActionButton(
+                        label: connectButtonLabel,
+                        icon: connectButtonIcon,
+                        onTap: selectedProxy == null || connectActionBusy
+                            ? null
+                            : () => _handleConnectAction(
+                                  selectedProxy: selectedProxy,
+                                  hasPremium: hasPremium,
+                                  selectedNeedsUpgrade: selectedNeedsUpgrade,
+                                  connectedProxyId: connectionState.connectedProxyId,
+                                ),
+                        kind: selectedNeedsUpgrade
+                            ? _GradientActionKind.premium
+                            : isConnectedToSelected
+                                ? _GradientActionKind.disconnect
+                                : _GradientActionKind.connect,
+                      ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
                 Row(
                   children: [
-                    const Icon(Icons.shield_rounded, color: Colors.white),
-                    const SizedBox(width: 8),
-                    Text(
-                      connected == null
-                          ? 'App Proxy: Disconnected'
-                          : 'App Proxy: ${connected.country}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16,
+                    Expanded(
+                      child: _MetricTile(
+                        label: 'Countries',
+                        value: '${countries.length}',
+                        icon: Icons.public,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _MetricTile(
+                        label: 'Free',
+                        value: '$freeCount',
+                        icon: Icons.lock_open,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _MetricTile(
+                        label: 'Premium',
+                        value: '$premiumCount',
+                        icon: Icons.lock,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  hasPremium
-                      ? 'All countries unlocked with premium speed.'
-                      : 'Free plan active. Premium countries are visible but locked.',
-                  style: const TextStyle(color: Color(0xFFE2E8F0)),
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'This mode routes Fasto app requests only. Browser/device IP does not change.',
-                  style: TextStyle(color: Color(0xFFBFDBFE), fontSize: 12),
-                ),
-                const SizedBox(height: 12),
-                AnimatedBuilder(
-                  animation: _flightProgress,
-                  builder: (context, _) {
-                    return _ConnectFlightTrack(
-                      progress: _flightProgress.value,
-                      selectedCountry: selectedProxy?.country ?? 'Selected Country',
-                      selectedFlag: selectedProxy?.flag ?? '🌐',
-                      state: _flightState,
-                    );
-                  },
-                ),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 250),
-                  child: _flightState == _ConnectFlightUiState.success
-                      ? Container(
-                          key: const ValueKey('connect_success_chip'),
-                          margin: const EdgeInsets.only(top: 10),
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.green.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(999),
-                            border: Border.all(color: Colors.greenAccent.withValues(alpha: 0.55)),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.check_circle, color: Colors.greenAccent, size: 16),
-                              SizedBox(width: 6),
-                              Text(
-                                'You are connected',
-                                style: TextStyle(
+                const SizedBox(height: 14),
+                _GlassPanel(
+                  padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Popular Countries',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 18,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      if (topCountries.isEmpty)
+                        const Text(
+                          'No countries available right now.',
+                          style: TextStyle(color: Color(0xFFE2E8F0)),
+                        )
+                      else
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            ...topCountries.map(
+                              (item) => ActionChip(
+                                avatar: Text(item.flag),
+                                backgroundColor: const Color(0x660B1021),
+                                side: BorderSide(color: Colors.white.withValues(alpha: 0.24)),
+                                labelStyle: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.w600,
-                                  fontSize: 12,
                                 ),
+                                label: Text(item.country),
+                                onPressed: () =>
+                                    ref.read(vpnConnectionControllerProvider.notifier).setSelectedProxy(item.id),
                               ),
-                            ],
-                          ),
-                        )
-                      : _flightState == _ConnectFlightUiState.failed
-                          ? Container(
-                              key: const ValueKey('connect_failed_chip'),
-                              margin: const EdgeInsets.only(top: 10),
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: Colors.red.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(999),
-                                border: Border.all(color: Colors.redAccent.withValues(alpha: 0.6)),
+                            ),
+                            ActionChip(
+                              avatar: const Icon(Icons.grid_view_rounded, size: 18, color: Colors.white),
+                              backgroundColor: const Color(0x660B1021),
+                              side: BorderSide(color: Colors.white.withValues(alpha: 0.24)),
+                              labelStyle: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
                               ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.error_outline, color: Colors.redAccent, size: 16),
-                                  SizedBox(width: 6),
-                                  Text(
-                                    'Connection failed',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            )
-                          : const SizedBox.shrink(),
-                ),
-                const SizedBox(height: 14),
-                InkWell(
-                  borderRadius: BorderRadius.circular(16),
-                  onTap: () => _openSelectorSheet(
-                    context,
-                    topCountries: topCountries,
-                    hasPremium: hasPremium,
+                              label: const Text('More'),
+                              onPressed: widget.onOpenServers,
+                            ),
+                          ],
+                        ),
+                    ],
                   ),
-                  child: Ink(
+                ),
+                if (isGuest) ...[
+                  const SizedBox(height: 12),
+                  _GlassPanel(
                     padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.16),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
-                    ),
                     child: Row(
                       children: [
-                        CircleAvatar(
-                          radius: 16,
-                          backgroundColor: Colors.white.withValues(alpha: 0.2),
-                          child: Text(selectedProxy?.flag ?? '🌐'),
+                        Container(
+                          width: 34,
+                          height: 34,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(10),
+                            color: Colors.white.withValues(alpha: 0.18),
+                          ),
+                          child: const Icon(Icons.info_outline, color: Colors.white),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                selectedProxy?.country ?? 'Select a Country',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              Text(
-                                selectedProxy == null
-                                    ? 'Tap to choose a server'
-                                    : selectedProxy.isPremium
-                                        ? 'Premium server'
-                                        : 'Free server',
-                                style: const TextStyle(color: Color(0xFFE2E8F0)),
-                              ),
-                            ],
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Text(
+                            'Guest mode active. Sign in from Profile to unlock premium purchases.',
+                            style: TextStyle(color: Colors.white, height: 1.3),
                           ),
                         ),
-                        const Icon(Icons.expand_more, color: Colors.white),
+                        TextButton(
+                          onPressed: () => ref.read(authControllerProvider.notifier).signInWithGoogle(),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            backgroundColor: Colors.white.withValues(alpha: 0.14),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          ),
+                          child: const Text('Sign In'),
+                        ),
                       ],
                     ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: selectedProxy == null || connectActionBusy
-                        ? null
-                        : () => _handleConnectAction(
-                              selectedProxy: selectedProxy,
-                              hasPremium: hasPremium,
-                              selectedNeedsUpgrade: selectedNeedsUpgrade,
-                              connectedProxyId: connectionState.connectedProxyId,
-                            ),
-                    icon: Icon(
-                      selectedNeedsUpgrade
-                          ? Icons.workspace_premium
-                          : selectedProxy?.id == connectionState.connectedProxyId
-                              ? Icons.link_off
-                              : Icons.power_settings_new,
-                    ),
-                    label: Text(
-                      connectActionBusy
-                          ? 'Connecting...'
-                          : selectedProxy == null
-                              ? 'Select Country'
-                              : selectedNeedsUpgrade
-                                  ? 'Upgrade to Connect'
-                                  : selectedProxy.id == connectionState.connectedProxyId
-                                      ? 'Disconnect'
-                                      : 'Connect Now',
-                    ),
+                ],
+                if (connectionState.error != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    connectionState.error!,
+                    style: const TextStyle(color: Color(0xFFFFCDD2), fontWeight: FontWeight.w600),
+                    textAlign: TextAlign.center,
                   ),
-                ),
+                ],
+                const SizedBox(height: 12),
+                Center(child: AdBannerWidget(show: showAds)),
+                const SizedBox(height: 94),
               ],
             ),
           ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: _MetricTile(
-                  label: 'Countries',
-                  value: '${countries.length}',
-                  icon: Icons.public,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _MetricTile(
-                  label: 'Free',
-                  value: '$freeCount',
-                  icon: Icons.lock_open,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _MetricTile(
-                  label: 'Premium',
-                  value: '$premiumCount',
-                  icon: Icons.lock,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Popular Countries',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      ...topCountries.map(
-                        (item) => ActionChip(
-                          avatar: Text(item.flag),
-                          label: Text(item.country),
-                          onPressed: () => ref.read(vpnConnectionControllerProvider.notifier).setSelectedProxy(item.id),
-                        ),
-                      ),
-                      ActionChip(
-                        avatar: const Icon(Icons.grid_view_rounded, size: 18),
-                        label: const Text('More'),
-                        onPressed: widget.onOpenServers,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (isGuest) ...[
-            const SizedBox(height: 12),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.info_outline),
-                title: const Text('Guest mode is active'),
-                subtitle: const Text('Sign in with Google from Profile to unlock premium purchases.'),
-                trailing: TextButton(
-                  onPressed: () => ref.read(authControllerProvider.notifier).signInWithGoogle(),
-                  child: const Text('Sign In'),
-                ),
-              ),
-            ),
-          ],
-          if (connectionState.error != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              connectionState.error!,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-              textAlign: TextAlign.center,
-            ),
-          ],
-          const SizedBox(height: 12),
-          Center(child: AdBannerWidget(show: showAds)),
         ],
       ),
     );
@@ -722,6 +917,209 @@ class _ConnectFlightTrack extends StatelessWidget {
   }
 }
 
+class _HomeBackgroundGlow extends StatelessWidget {
+  final Alignment alignment;
+  final double size;
+  final Color color;
+
+  const _HomeBackgroundGlow({
+    required this.alignment,
+    required this.size,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: alignment,
+      child: IgnorePointer(
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GlassPanel extends StatelessWidget {
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+  final BorderRadius borderRadius;
+  final LinearGradient? gradient;
+
+  const _GlassPanel({
+    required this.child,
+    this.padding = const EdgeInsets.all(16),
+    this.borderRadius = const BorderRadius.all(Radius.circular(24)),
+    this.gradient,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: borderRadius,
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 9, sigmaY: 9),
+        child: Container(
+          padding: padding,
+          decoration: BoxDecoration(
+            borderRadius: borderRadius,
+            gradient: gradient ??
+                const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0x33FFFFFF),
+                    Color(0x1DFFFFFF),
+                  ],
+                ),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.24)),
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
+class _FrostedIconButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _FrostedIconButton({
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+        child: Material(
+          color: Colors.white.withValues(alpha: 0.18),
+          child: InkWell(
+            onTap: onTap,
+            child: Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.26)),
+              ),
+              child: Icon(icon, color: Colors.white),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+enum _GradientActionKind { connect, disconnect, premium }
+
+class _GradientActionButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final VoidCallback? onTap;
+  final _GradientActionKind kind;
+
+  const _GradientActionButton({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+    required this.kind,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final disabled = onTap == null;
+    late final LinearGradient gradient;
+    if (disabled) {
+      gradient = const LinearGradient(
+        colors: [
+          Color(0x3DFFFFFF),
+          Color(0x3DFFFFFF),
+        ],
+      );
+    } else if (kind == _GradientActionKind.disconnect) {
+      gradient = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Color(0xFF7F1D1D),
+          Color(0xFFB91C1C),
+        ],
+      );
+    } else if (kind == _GradientActionKind.premium) {
+      gradient = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Color(0xFF8A3D06),
+          Color(0xFFEA580C),
+        ],
+      );
+    } else {
+      gradient = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Color(0xFF0B1021),
+          Color(0xFF0A1A3D),
+        ],
+      );
+    }
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        gradient: gradient,
+        boxShadow: disabled
+            ? []
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.24),
+                  blurRadius: 22,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 18, color: Colors.white.withValues(alpha: disabled ? 0.55 : 1)),
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: disabled ? 0.55 : 1),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _PlansTab extends ConsumerWidget {
   final VoidCallback onOpenAuth;
   final VoidCallback onOpenSubscriptionStatus;
@@ -751,132 +1149,275 @@ class _PlansTab extends ConsumerWidget {
         final package = state.selectedPackage;
         final price = package?.storeProduct.priceString ?? 'US\$9.99 / month';
 
-        return ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-          children: [
-            Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(22),
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF0B132B), Color(0xFF2563EB)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+        return DecoratedBox(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFFD137FF),
+                Color(0xFF5D39FF),
+                Color(0xFF12A9FF),
+              ],
+              stops: [0, 0.52, 1],
+            ),
+          ),
+          child: Stack(
+            children: [
+              const _HomeBackgroundGlow(
+                alignment: Alignment.topLeft,
+                size: 240,
+                color: Color(0x4DFFFFFF),
               ),
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              const _HomeBackgroundGlow(
+                alignment: Alignment.bottomRight,
+                size: 300,
+                color: Color(0x29000000),
+              ),
+              ListView(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
                 children: [
-                  const Text(
-                    'Fasto Premium',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
+                  _GlassPanel(
+                    borderRadius: BorderRadius.circular(28),
+                    padding: const EdgeInsets.all(18),
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Color(0xAA0A1338),
+                        Color(0x994A33C6),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Fasto Premium',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 30,
+                            fontWeight: FontWeight.w800,
+                            height: 1.05,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Unlock all countries, connect instantly, and enjoy an ad-free experience.',
+                          style: TextStyle(
+                            color: Color(0xFFE2E8F0),
+                            height: 1.35,
+                            fontSize: 15,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Container(
+                              width: 34,
+                              height: 34,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                color: Colors.amberAccent.withValues(alpha: 0.2),
+                              ),
+                              child: const Icon(Icons.workspace_premium, color: Colors.amberAccent, size: 20),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                price,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 30,
+                                  fontWeight: FontWeight.w800,
+                                  height: 1,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _GlassPanel(
+                    padding: const EdgeInsets.all(14),
+                    child: const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _BenefitRow(
+                          label: 'Connect to premium countries',
+                          textColor: Colors.white,
+                          iconColor: Color(0xFF86EFAC),
+                        ),
+                        _BenefitRow(
+                          label: 'No ad interruptions',
+                          textColor: Colors.white,
+                          iconColor: Color(0xFF86EFAC),
+                        ),
+                        _BenefitRow(
+                          label: 'Priority server availability',
+                          textColor: Colors.white,
+                          iconColor: Color(0xFF86EFAC),
+                        ),
+                        _BenefitRow(
+                          label: 'Faster premium routing',
+                          textColor: Colors.white,
+                          iconColor: Color(0xFF86EFAC),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  if (hasPremium)
+                    _GlassPanel(
+                      padding: const EdgeInsets.all(14),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 34,
+                            height: 34,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(10),
+                              color: Colors.green.withValues(alpha: 0.22),
+                            ),
+                            child: const Icon(Icons.verified, color: Color(0xFF86EFAC)),
+                          ),
+                          const SizedBox(width: 10),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Premium is active',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                SizedBox(height: 2),
+                                Text(
+                                  'Your account currently has full access to all countries.',
+                                  style: TextStyle(color: Color(0xFFE2E8F0)),
+                                ),
+                              ],
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: onOpenSubscriptionStatus,
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.white,
+                              backgroundColor: Colors.white.withValues(alpha: 0.14),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            ),
+                            child: const Text('Details'),
+                          ),
+                        ],
+                      ),
+                    )
+                  else ...[
+                    if (isGuest)
+                      _GlassPanel(
+                        padding: const EdgeInsets.all(14),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 34,
+                              height: 34,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(10),
+                                color: Colors.white.withValues(alpha: 0.18),
+                              ),
+                              child: const Icon(Icons.info_outline, color: Colors.white),
+                            ),
+                            const SizedBox(width: 10),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Sign in required',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  SizedBox(height: 2),
+                                  Text(
+                                    'Sign in with Google to purchase premium and sync your plan.',
+                                    style: TextStyle(color: Color(0xFFE2E8F0)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: onOpenAuth,
+                              style: TextButton.styleFrom(
+                                foregroundColor: Colors.white,
+                                backgroundColor: Colors.white.withValues(alpha: 0.14),
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              ),
+                              child: const Text('Sign In'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    const SizedBox(height: 8),
+                    _GradientActionButton(
+                      onTap: isGuest || state.purchasing || package == null
+                          ? null
+                          : () => ref.read(purchaseControllerProvider.notifier).purchaseSelected(),
+                      kind: _GradientActionKind.premium,
+                      icon: state.purchasing ? Icons.hourglass_top_rounded : Icons.shopping_bag_outlined,
+                      label: state.purchasing ? 'Processing...' : 'Upgrade Now',
+                    ),
+                  ],
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: BorderSide(color: Colors.white.withValues(alpha: 0.45)),
+                        backgroundColor: Colors.white.withValues(alpha: 0.08),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      onPressed: state.restoring
+                          ? null
+                          : () => ref.read(purchaseControllerProvider.notifier).restorePurchases(),
+                      child: Text(
+                        state.restoring ? 'Restoring...' : 'Restore Purchases',
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 6),
-                  const Text(
-                    'Unlock all countries, connect instantly, and enjoy an ad-free experience.',
-                    style: TextStyle(color: Color(0xFFE2E8F0)),
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      const Icon(Icons.workspace_premium, color: Colors.amberAccent),
-                      const SizedBox(width: 8),
-                      Text(
-                        price,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 14),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _BenefitRow(label: 'Connect to premium countries'),
-                    _BenefitRow(label: 'No ad interruptions'),
-                    _BenefitRow(label: 'Priority server availability'),
-                    _BenefitRow(label: 'Faster premium routing'),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            if (hasPremium)
-              Card(
-                child: ListTile(
-                  leading: const Icon(Icons.verified, color: Colors.green),
-                  title: const Text('Premium is active'),
-                  subtitle: const Text('Your account currently has full access to all countries.'),
-                  trailing: TextButton(
-                    onPressed: onOpenSubscriptionStatus,
-                    child: const Text('Details'),
-                  ),
-                ),
-              )
-            else ...[
-              if (isGuest)
-                Card(
-                  child: ListTile(
-                    leading: const Icon(Icons.info_outline),
-                    title: const Text('Sign in required'),
-                    subtitle: const Text('Sign in with Google to purchase premium and sync your plan.'),
-                    trailing: TextButton(
-                      onPressed: onOpenAuth,
-                      child: const Text('Sign In'),
+                  TextButton(
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: () => ref.read(purchaseControllerProvider.notifier).refreshOfferings(),
+                    child: const Text(
+                      'Reload Plans',
+                      style: TextStyle(fontWeight: FontWeight.w700),
                     ),
                   ),
-                ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: isGuest || state.purchasing || package == null
-                      ? null
-                      : () => ref.read(purchaseControllerProvider.notifier).purchaseSelected(),
-                  icon: state.purchasing
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.shopping_bag_outlined),
-                  label: Text(state.purchasing ? 'Processing...' : 'Upgrade Now'),
-                ),
+                  if (state.error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        state.error!,
+                        style: const TextStyle(
+                          color: Color(0xFFFFCDD2),
+                          fontWeight: FontWeight.w600,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  const SizedBox(height: 94),
+                ],
               ),
             ],
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed: state.restoring
-                    ? null
-                    : () => ref.read(purchaseControllerProvider.notifier).restorePurchases(),
-                child: Text(state.restoring ? 'Restoring...' : 'Restore Purchases'),
-              ),
-            ),
-            TextButton(
-              onPressed: () => ref.read(purchaseControllerProvider.notifier).refreshOfferings(),
-              child: const Text('Reload Plans'),
-            ),
-            if (state.error != null)
-              Text(
-                state.error!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-          ],
+          ),
         );
       },
     );
@@ -912,108 +1453,227 @@ class _ProfileTab extends ConsumerWidget {
             ? session!.displayName!
             : (session?.email ?? 'Guest User');
 
-        return ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-          children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 28,
-                      child: Text(
-                        name.isNotEmpty ? name[0].toUpperCase() : 'U',
-                        style: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            name,
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          Text(
-                            isGuest ? 'Guest Account' : (session?.email ?? 'Google Account'),
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                        ],
-                      ),
-                    ),
-                    Chip(
-                      label: Text(entitlement?.hasPremium == true ? 'PREMIUM' : 'FREE'),
-                      avatar: Icon(
-                        entitlement?.hasPremium == true ? Icons.workspace_premium : Icons.lock_open,
-                        size: 16,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+        return DecoratedBox(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFFD137FF),
+                Color(0xFF5D39FF),
+                Color(0xFF12A9FF),
+              ],
+              stops: [0, 0.52, 1],
             ),
-            const SizedBox(height: 12),
-            Card(
-              child: Column(
+          ),
+          child: Stack(
+            children: [
+              const _HomeBackgroundGlow(
+                alignment: Alignment.topLeft,
+                size: 240,
+                color: Color(0x4DFFFFFF),
+              ),
+              const _HomeBackgroundGlow(
+                alignment: Alignment.bottomRight,
+                size: 300,
+                color: Color(0x29000000),
+              ),
+              ListView(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
                 children: [
-                  ListTile(
-                    leading: const Icon(Icons.workspace_premium_outlined),
-                    title: const Text('Plan & Billing'),
-                    subtitle: const Text('Manage premium access and billing state'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: onOpenPlans,
+                  _GlassPanel(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 58,
+                          height: 58,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white.withValues(alpha: 0.24),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.36)),
+                          ),
+                          child: Center(
+                            child: Text(
+                              name.isNotEmpty ? name[0].toUpperCase() : 'U',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 22,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                name,
+                                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                isGuest ? 'Guest Account' : (session?.email ?? 'Google Account'),
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                      color: const Color(0xFFE2E8F0),
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(999),
+                            color: Colors.white.withValues(alpha: 0.16),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                entitlement?.hasPremium == true ? Icons.workspace_premium : Icons.lock_open,
+                                size: 16,
+                                color: entitlement?.hasPremium == true ? Colors.amberAccent : Colors.white,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                entitlement?.hasPremium == true ? 'PREMIUM' : 'FREE',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  const Divider(height: 1),
-                  ListTile(
-                    leading: const Icon(Icons.receipt_long_outlined),
-                    title: const Text('Subscription Status'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: onOpenSubscriptionStatus,
+                  const SizedBox(height: 12),
+                  _GlassPanel(
+                    padding: EdgeInsets.zero,
+                    child: Column(
+                      children: [
+                        _ProfileActionTile(
+                          icon: Icons.workspace_premium_outlined,
+                          title: 'Plan & Billing',
+                          subtitle: 'Manage premium access and billing state',
+                          onTap: onOpenPlans,
+                        ),
+                        Divider(height: 1, color: Colors.white.withValues(alpha: 0.2)),
+                        _ProfileActionTile(
+                          icon: Icons.receipt_long_outlined,
+                          title: 'Subscription Status',
+                          onTap: onOpenSubscriptionStatus,
+                        ),
+                        Divider(height: 1, color: Colors.white.withValues(alpha: 0.2)),
+                        _ProfileActionTile(
+                          icon: Icons.settings_outlined,
+                          title: 'Settings',
+                          onTap: onOpenSettings,
+                        ),
+                      ],
+                    ),
                   ),
-                  const Divider(height: 1),
-                  ListTile(
-                    leading: const Icon(Icons.settings_outlined),
-                    title: const Text('Settings'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: onOpenSettings,
+                  const SizedBox(height: 12),
+                  if (isGuest)
+                    _GradientActionButton(
+                      onTap: authState.busy ? null : onOpenAuth,
+                      icon: Icons.login,
+                      label: authState.busy ? 'Please wait...' : 'Sign in with Google',
+                      kind: _GradientActionKind.connect,
+                    )
+                  else
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          side: BorderSide(color: Colors.white.withValues(alpha: 0.45)),
+                          backgroundColor: Colors.white.withValues(alpha: 0.08),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        onPressed: authState.busy
+                            ? null
+                            : () async {
+                                await ref.read(authControllerProvider.notifier).signOut();
+                                if (!context.mounted) return;
+                                context.go(AppRoutes.authChoice);
+                              },
+                        icon: const Icon(Icons.logout),
+                        label: Text(authState.busy ? 'Signing out...' : 'Sign out'),
+                      ),
+                    ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: BorderSide(color: Colors.white.withValues(alpha: 0.45)),
+                        backgroundColor: Colors.white.withValues(alpha: 0.08),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      onPressed: purchase == null || purchase.restoring
+                          ? null
+                          : () => ref.read(purchaseControllerProvider.notifier).restorePurchases(),
+                      icon: const Icon(Icons.restore),
+                      label: Text(purchase?.restoring == true ? 'Restoring...' : 'Restore purchases'),
+                    ),
                   ),
+                  const SizedBox(height: 94),
                 ],
               ),
-            ),
-            const SizedBox(height: 12),
-            if (isGuest)
-              ElevatedButton.icon(
-                onPressed: authState.busy ? null : onOpenAuth,
-                icon: const Icon(Icons.login),
-                label: const Text('Sign in with Google'),
-              )
-            else
-              OutlinedButton.icon(
-                onPressed: authState.busy
-                    ? null
-                    : () async {
-                        await ref.read(authControllerProvider.notifier).signOut();
-                        if (!context.mounted) return;
-                        context.go(AppRoutes.authChoice);
-                      },
-                icon: const Icon(Icons.logout),
-                label: Text(authState.busy ? 'Signing out...' : 'Sign out'),
-              ),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: purchase == null || purchase.restoring
-                  ? null
-                  : () => ref.read(purchaseControllerProvider.notifier).restorePurchases(),
-              icon: const Icon(Icons.restore),
-              label: Text(purchase?.restoring == true ? 'Restoring...' : 'Restore purchases'),
-            ),
-          ],
+            ],
+          ),
         );
       },
+    );
+  }
+}
+
+class _ProfileActionTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final VoidCallback onTap;
+
+  const _ProfileActionTile({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+      leading: Icon(icon, color: Colors.white),
+      title: Text(
+        title,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      subtitle: subtitle == null
+          ? null
+          : Text(
+              subtitle!,
+              style: const TextStyle(color: Color(0xFFE2E8F0)),
+            ),
+      trailing: const Icon(Icons.chevron_right, color: Colors.white),
+      onTap: onTap,
     );
   }
 }
@@ -1031,17 +1691,27 @@ class _MetricTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-        child: Column(
-          children: [
-            Icon(icon, size: 20),
-            const SizedBox(height: 6),
-            Text(value, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
-            Text(label, style: Theme.of(context).textTheme.bodySmall),
-          ],
-        ),
+    return _GlassPanel(
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+      borderRadius: BorderRadius.circular(20),
+      child: Column(
+        children: [
+          Icon(icon, size: 20, color: Colors.white),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                ),
+          ),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Colors.white.withValues(alpha: 0.86),
+                ),
+          ),
+        ],
       ),
     );
   }
@@ -1049,8 +1719,14 @@ class _MetricTile extends StatelessWidget {
 
 class _BenefitRow extends StatelessWidget {
   final String label;
+  final Color? textColor;
+  final Color? iconColor;
 
-  const _BenefitRow({required this.label});
+  const _BenefitRow({
+    required this.label,
+    this.textColor,
+    this.iconColor,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1058,11 +1734,17 @@ class _BenefitRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
-          const Icon(Icons.check_circle, color: Colors.green, size: 18),
+          Icon(Icons.check_circle, color: iconColor ?? Colors.green, size: 18),
           const SizedBox(width: 8),
-          Expanded(child: Text(label)),
+          Expanded(
+            child: Text(
+              label,
+              style: textColor == null ? null : TextStyle(color: textColor),
+            ),
+          ),
         ],
       ),
     );
   }
 }
+

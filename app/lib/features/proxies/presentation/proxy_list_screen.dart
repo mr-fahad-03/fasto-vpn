@@ -4,10 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_routes.dart';
 import '../../../core/models/proxy_node.dart';
 import '../../../core/widgets/ad_banner.dart';
-import '../../../core/widgets/empty_view.dart';
-import '../../../core/widgets/error_view.dart';
-import '../../../core/widgets/loading_view.dart';
 import '../../../core/widgets/native_ad_placeholder.dart';
+import '../../../core/widgets/premium_surface.dart';
 import '../../subscription/state/ad_visibility_provider.dart';
 import '../../subscription/state/entitlement_controller.dart';
 import '../state/proxy_list_controller.dart';
@@ -84,6 +82,8 @@ class _ProxyListScreenState extends ConsumerState<ProxyListScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Select Server'),
+        backgroundColor: const Color(0xFF3555D9),
+        foregroundColor: Colors.white,
         actions: [
           IconButton(
             onPressed: () => ref.read(proxyListControllerProvider.notifier).refresh(),
@@ -91,21 +91,66 @@ class _ProxyListScreenState extends ConsumerState<ProxyListScreen> {
           ),
         ],
       ),
-      body: proxyAsync.when(
-        loading: () => const LoadingView(label: 'Loading servers...'),
-        error: (error, _) => ErrorView(
-          message: error.toString(),
-          onRetry: () => ref.invalidate(proxyListControllerProvider),
+      body: PremiumPageBackground(
+        child: proxyAsync.when(
+        loading: () => const Center(
+          child: CircularProgressIndicator(color: Colors.white),
+        ),
+        error: (error, _) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: PremiumGlassCard(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.error_outline, color: Color(0xFFFFCDD2), size: 42),
+                  const SizedBox(height: 10),
+                  Text(
+                    error.toString(),
+                    style: const TextStyle(color: Colors.white),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton(
+                    onPressed: () => ref.invalidate(proxyListControllerProvider),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
         data: (state) {
           if (state.loading) {
-            return const LoadingView(label: 'Loading servers...');
+            return const Center(
+              child: CircularProgressIndicator(color: Colors.white),
+            );
           }
 
           if (state.error != null && state.items.isEmpty) {
-            return ErrorView(
-              message: state.error!,
-              onRetry: () => ref.read(proxyListControllerProvider.notifier).refresh(),
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: PremiumGlassCard(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.error_outline, color: Color(0xFFFFCDD2), size: 42),
+                      const SizedBox(height: 10),
+                      Text(
+                        state.error!,
+                        style: const TextStyle(color: Colors.white),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 12),
+                      ElevatedButton(
+                        onPressed: () => ref.read(proxyListControllerProvider.notifier).refresh(),
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             );
           }
 
@@ -114,12 +159,21 @@ class _ProxyListScreenState extends ConsumerState<ProxyListScreen> {
               if (connectedProxy != null)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  child: Card(
+                  child: PremiumGlassCard(
                     child: ListTile(
-                      leading: CircleAvatar(child: Text(connectedProxy.flag)),
-                      title: Text('Connected: ${connectedProxy.country}'),
-                      subtitle: const Text('Your secure server is active.'),
-                      trailing: const Icon(Icons.verified, color: Colors.green),
+                      leading: CircleAvatar(
+                        backgroundColor: Colors.white.withValues(alpha: 0.2),
+                        child: Text(connectedProxy.flag),
+                      ),
+                      title: Text(
+                        'Connected: ${connectedProxy.country}',
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                      ),
+                      subtitle: const Text(
+                        'Your secure server is active.',
+                        style: TextStyle(color: Color(0xFFE2E8F0)),
+                      ),
+                      trailing: const Icon(Icons.verified, color: Color(0xFF86EFAC)),
                     ),
                   ),
                 ),
@@ -127,10 +181,21 @@ class _ProxyListScreenState extends ConsumerState<ProxyListScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                 child: TextField(
                   controller: _searchController,
-                  decoration: const InputDecoration(
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
                     hintText: 'Search country',
-                    prefixIcon: Icon(Icons.search),
-                    border: OutlineInputBorder(),
+                    hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.78)),
+                    prefixIcon: const Icon(Icons.search, color: Colors.white),
+                    filled: true,
+                    fillColor: Colors.white.withValues(alpha: 0.1),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.34)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(color: Colors.white),
+                    ),
                   ),
                   onChanged: (value) => ref.read(proxyFilterControllerProvider.notifier).setSearch(value),
                 ),
@@ -139,18 +204,31 @@ class _ProxyListScreenState extends ConsumerState<ProxyListScreen> {
                 padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
                 child: Align(
                   alignment: Alignment.centerLeft,
-                  child: Text('Choose a country, then tap Connect.'),
+                  child: Text(
+                    'Choose a country, then tap Connect.',
+                    style: TextStyle(color: Color(0xFFE2E8F0)),
+                  ),
                 ),
               ),
               if (entitlement?.hasPremium != true)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Card(
+                  child: PremiumGlassCard(
                     child: ListTile(
-                      leading: const Icon(Icons.workspace_premium_outlined),
-                      title: const Text('Unlock all countries and no ads'),
-                      subtitle: const Text('Upgrade to Premium for full server access.'),
+                      leading: const Icon(Icons.workspace_premium_outlined, color: Colors.amberAccent),
+                      title: const Text(
+                        'Unlock all countries and no ads',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                      ),
+                      subtitle: const Text(
+                        'Upgrade to Premium for full server access.',
+                        style: TextStyle(color: Color(0xFFE2E8F0)),
+                      ),
                       trailing: TextButton(
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          backgroundColor: Colors.white.withValues(alpha: 0.14),
+                        ),
                         onPressed: () => context.push(AppRoutes.premium),
                         child: const Text('Upgrade'),
                       ),
@@ -159,9 +237,15 @@ class _ProxyListScreenState extends ConsumerState<ProxyListScreen> {
                 ),
               Expanded(
                 child: countryServers.isEmpty
-                    ? const EmptyView(
-                        title: 'No servers found',
-                        subtitle: 'Try changing your search text.',
+                    ? const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Text(
+                            'No servers found. Try changing your search text.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ),
                       )
                     : ListView.separated(
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
@@ -170,25 +254,37 @@ class _ProxyListScreenState extends ConsumerState<ProxyListScreen> {
                           final isSelected = connection.selectedProxyId == item.id;
                           final isConnected = connection.connectedProxyId == item.id;
 
-                          return Card(
+                          return PremiumGlassCard(
+                            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
                             child: ListTile(
                               onTap: () => ref.read(vpnConnectionControllerProvider.notifier).setSelectedProxy(item.id),
-                              leading: CircleAvatar(child: Text(item.flag)),
-                              title: Text(item.country),
+                              leading: CircleAvatar(
+                                backgroundColor: Colors.white.withValues(alpha: 0.2),
+                                child: Text(item.flag),
+                              ),
+                              title: Text(
+                                item.country,
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                              ),
                               subtitle: Text(
                                 isConnected
                                     ? 'Connected'
                                     : item.isPremium && !hasPremium
                                         ? 'Premium server'
                                         : 'Tap to select',
+                                style: const TextStyle(color: Color(0xFFE2E8F0)),
                               ),
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   if (item.isPremium)
-                                    const Padding(
+                                    Padding(
                                       padding: EdgeInsets.only(right: 8),
-                                      child: Icon(Icons.lock_outline, size: 18),
+                                      child: Icon(
+                                        Icons.lock_outline,
+                                        size: 18,
+                                        color: item.isPremium && !hasPremium ? Colors.amberAccent : Colors.white,
+                                      ),
                                     ),
                                   Icon(
                                     isConnected
@@ -196,7 +292,7 @@ class _ProxyListScreenState extends ConsumerState<ProxyListScreen> {
                                         : isSelected
                                             ? Icons.radio_button_checked
                                             : Icons.radio_button_unchecked,
-                                    color: isConnected ? Colors.green : null,
+                                    color: isConnected ? const Color(0xFF86EFAC) : Colors.white,
                                   ),
                                 ],
                               ),
@@ -212,10 +308,7 @@ class _ProxyListScreenState extends ConsumerState<ProxyListScreen> {
                 child: Text(
                   'App traffic only mode: browser/device IP remains unchanged.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.8),
-                    fontSize: 12,
-                  ),
+                  style: const TextStyle(color: Color(0xFFE2E8F0), fontSize: 12),
                 ),
               ),
               Padding(
@@ -223,6 +316,10 @@ class _ProxyListScreenState extends ConsumerState<ProxyListScreen> {
                 child: SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0B1021),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
                     onPressed: selectedProxy == null || connection.connecting
                         ? null
                         : () async {
@@ -259,7 +356,7 @@ class _ProxyListScreenState extends ConsumerState<ProxyListScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                   child: Text(
                     connection.error!,
-                    style: TextStyle(color: Theme.of(context).colorScheme.error),
+                    style: const TextStyle(color: Color(0xFFFFCDD2)),
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -269,11 +366,24 @@ class _ProxyListScreenState extends ConsumerState<ProxyListScreen> {
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                child: NativeAdPlaceholder(show: showAds),
+                child: Theme(
+                  data: Theme.of(context).copyWith(
+                    cardTheme: CardThemeData(
+                      color: Colors.white.withValues(alpha: 0.12),
+                      surfaceTintColor: Colors.transparent,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
+                    iconTheme: const IconThemeData(color: Colors.white),
+                    textTheme: Theme.of(context).textTheme.apply(bodyColor: Colors.white, displayColor: Colors.white),
+                  ),
+                  child: NativeAdPlaceholder(show: showAds),
+                ),
               ),
+              const SizedBox(height: 90),
             ],
           );
         },
+      ),
       ),
     );
   }
